@@ -1,15 +1,14 @@
 <?php
 
 
-/* Filter URL from redundancies */
+/* Filter URL from redundancies and extract requested active file */
 $uri = rtrim( dirname($_SERVER["SCRIPT_NAME"]), '/' );
 $uri = '/' . trim( str_replace( $uri, '', $_SERVER['REQUEST_URI'] ), '/' );
 $uri = urldecode( $uri );
 
-// echo $uri;
-
-
-$target_directory = './docs';
+/* Define some constants to use throughout the system */
+define("DOC_FOLDER", './docs');
+define("ANCHOR_URL", 'http://localhost/bluejay/');
 
 class tree_node 
 {
@@ -36,7 +35,7 @@ class tree_node
     }
 
     public function get_href() : string {
-        return $this->directory . '/' . $this->file_name;
+        return substr($this->directory . '/' . $this->file_name, strlen(DOC_FOLDER) + 1);
     }
 
     public function have_readme() : bool {
@@ -50,6 +49,10 @@ class tree_node
 
 }
 
+/**
+ * Create a virtual file-system from a source ($target) directory and recursively 
+ * attach subdirectories and files. 
+ */
 function get_docs_tree(string $target) : array {
     $result = array();
 
@@ -65,40 +68,90 @@ function get_docs_tree(string $target) : array {
    return $result; 
 }
 
-function build_table_contents(array $tree, bool $child = false) : string {
+/**
+ * Using a virtual file-system create a traversible unordered list that can be
+ * used as a navigation/table of contents
+ */
+function build_table_contents(array $tree, string $active, bool $child = false) : string {
     $result = "<ul>";
-    if ($child) $result = '<ul class="collapsiable">';
+    if ($child && !search_current_file($tree, substr($active, 1))) $result = '<ul class="collapsiable">';
 
     foreach ($tree as $node) {
         if ($node->is_directory) {
+            $result .= '<li><i class="fa fa-folder" style="color: #e67e22;"></i>';
+
             if ($node->have_readme()) {
-                $result .= "<li><a href=\"" . $node->get_href() . "\">$node->name</a>" . build_table_contents($node->sub_directory, true) . "</li>";
+                $result .= '<a href="' . ANCHOR_URL . $node->get_href() . '">';
             } else {
-                $result .= "<li><a onclick=\"collapse_items(this)\">$node->name</a>" . build_table_contents($node->sub_directory, true) . "</li>";
+                $result .= '<a onclick="collapse_items(this)">';
             }
+            $result .= $node->name . '</a>' . build_table_contents($node->sub_directory, $active, true) . '</li>';
 
         } else {
             $file = substr($node->name, 0, -3);
-            $result .= "<li><a href=\"" . $node->get_href() . "\">$file</a></li>";
+            $result .= '<li><i class="fa fa-file" style="color: #1abc9c;"></i><a href="' . ANCHOR_URL . $node->get_href() . "\">$file</a></li>";
         }
         
     }
     return $result . "</ul>";
 }
 
+/**
+ * Search a given parent node in a virtual file system to see if it contains
+ * a particular file given by $location
+ */
+function search_current_file(array $parent_node, string $location) : bool {
+    $result = false;
+    foreach ($parent_node as $node) {
+        if ($node->is_directory) {
+            if ($node->get_href() === $location) return true;
+            $result = $result || search_current_file($node->sub_directory, $location);
+        } else {
+            if ($node->get_href() === $location) return true;
+        }
+    }
+    return $result;
+} 
 
-$tree = get_docs_tree($target_directory);
+/**
+ * Using the requested url traverse the file-system for the filename and location
+ * in the real file system. Returns 'error.md' if not found.
+ */
+function get_current_file(array $tree, string $location) : string {
+    $result = 'error.md';
 
+    if ($location === '/') return DOC_FOLDER . '/README.md';
+    foreach ($tree as $node) {
+        if ($node->is_directory) {
+            if ($node->have_readme()) {
+                if ($node->get_href() === $location) {
+                    return DOC_FOLDER . '/' . $node->get_href() . '/README.md';
+                } 
+            } else {
+                $result = get_current_file($node->sub_directory, $location);
+            }
+        } else {
+            if ($node->get_href() === $location) return DOC_FOLDER . '/' . $node->get_href(); 
+        }
+        if ($result != 'error.md') return $result;
+    }
 
-// echo in_array('README.md', $tree);
+    return $result;
+}
+
+/* Build the file-system tree */
+$tree = get_docs_tree(DOC_FOLDER);
+
+/* Fetch the active file to render */
+$target_file = get_current_file($tree, substr($uri, 1));
 
 ?>
 
 <html>
-
 <head>
     <title>Bluejay</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.9.1/showdown.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <style>
         <?php include("theme.css"); ?>
     </style>
@@ -110,14 +163,10 @@ $tree = get_docs_tree($target_directory);
     </div>
     <div>
         <div class="side-bar">
-            <?php echo build_table_contents($tree); ?>
+            <?php echo build_table_contents($tree, $uri); ?>
         </div>
         <div class="main-content">
-            <div id="md_content">
-                <h1>Hello World</h1>
-                <p>A test paragraph body</p>
-                <p>The second paragraph body</p>
-            </div>
+            <div id="md_content"></div>
         </div>
     </div>
 </body>
@@ -135,16 +184,12 @@ function collapse_items(parent) {
 }
 
 var md_text = `<?php
-
-$file = fopen("docs/README.md","r");
-
-while(! feof($file))
-  {
-  echo str_replace('`', '\`', fgets($file));
-  }
-
+/* Write the active file to the render buffer */
+$file = fopen($target_file,"r");
+while(!feof($file)) {
+    echo str_replace('`', '\`', fgets($file));
+}
 fclose($file);
-
 ?>`;
 
 var converter = new showdown.Converter();
