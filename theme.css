@@ -1,0 +1,60 @@
+h1 {
+    margin: 0;
+}
+
+.top-bar h1 {
+    padding: 1em;
+}
+
+body {
+    font-family: "Trebuchet MS", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: white;
+    overflow: hidden;
+}
+
+.top-bar {
+    height: 7em;
+    color: white;
+    background-color: #425B71;
+    box-sizing: border-box;
+}
+
+.side-bar {
+    position: absolute;
+    top: 7em;
+    width: 20em;
+    bottom: 0;
+    border-right-width: 0.1em;
+    border-right-style: solid;
+    border-right-color: #e6e6e6;
+    background-color: #fcfcfc;
+    overflow: auto;
+}
+
+.side-bar a {
+    text-decoration: none;
+}
+
+.side-bar a:hover {
+    text-decoration: underline;
+}
+
+.main-content {
+    position: absolute;
+    top: 7em;
+    left: 21em;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 2em;
+    background-color: white;
+    box-sizing: border-box;
+    overflow: auto;
+}
+
+.collapsiable {
+    display: none;
+    overflow: hidden;
+}
