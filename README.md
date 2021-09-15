@@ -10,4 +10,4 @@ into basic html.
 
 With the current setup in this repo it looks like the following
 
-![screenshot](res/screenshot.png)
+![screenshot](https://raw.githubusercontent.com/lcox74/Bluejay/main/res/screenshot.PNG)
